@@ -30,7 +30,7 @@ local Window = WindUI:CreateWindow({
 
     User = {
         Enabled = true,
-        Anonymous = true,
+        Anonymous = false,
         Callback = function()
             WindUI:Notify({
                 Title = "Omni Hub",
@@ -99,7 +99,7 @@ local Sections = {
 
 local Tabs = {
     Home       = Sections.Hub:Tab({     Title = "Home",       Icon = "house"     }),
-    Scripts    = Sections.Scripts:Tab({ Title = "Scripts",    Icon = "code-2"    }),
+    Scripts    = Sections.Scripts:Tab({ Title = "Teleport",    Icon = "navigation"    }),
     Appearance = Sections.Manage:Tab({  Title = "Appearance", Icon = "brush"     }),
     Config     = Sections.Manage:Tab({  Title = "Config",     Icon = "settings"  }),
 }
@@ -201,114 +201,103 @@ Tabs.Home:Paragraph({
 })
 
 -- ============================================================
---  SCRIPTS TAB
+--  Teleport TAB - Muscle Legend Advanced & Scalable
 -- ============================================================
 
 Tabs.Scripts:Paragraph({
-    Title = "Script Library",
-    Desc  = "Execute scripts instantly. More scripts added regularly.",
-    Image = "library",
+    Title = "Teleport",
+    Desc  = "Teleport to Muscle Legend islands instantly! Scalable for new regions.",
+    Image = "navigation",
     ImageSize = 20,
-    Color = Color3.fromHex("#818CF8"),
+    Color = Color3.fromHex("#10B981"),  -- Green for success/teleport theme
 })
 
-local ScriptSection = Tabs.Scripts:Section({
-    Title  = "Universal Scripts",
+local TeleportSection = Tabs.Scripts:Section({
+    Title  = "Muscle Legend Islands",
     Opened = true,
     Box    = true,
 })
 
-ScriptSection:Toggle({
-    Title = "Infinite Jump",
-    Flag  = "InfiniteJump",
-    Value = false,
-    Callback = function(state)
+TeleportSection:Divider()
+
+-- Advanced Teleport Config (Scalable)
+local Teleports = {
+    Spawn = {CFrame = CFrame.new(0, 10, 0), Icon = "map-pin"},
+    ["Tiny Island"] = {CFrame = CFrame.new(-38.3682442, 14.0611677, 1883.96313, -1, 0, 0, 0, 1, 0, 0, 0, -1), Icon = "anchor"},
+    ["Legend Beach"] = {CFrame = CFrame.new(-114.379097, 24.6774673, -635.694824, -0.996129751, -0.00745654758, -0.0875818506, -0.00858347397, 0.999885082, 0.0124975732, 0.0874786004, 0.0132009564, -0.996079206), Icon = "beach"},
+    ["Frost Gym"] = {CFrame = CFrame.new(-2623.02222, 28.6999931, -409.073334, 0, 0, 1, 0, 1, 0, -1, 0, 0), Icon = "snowflake"},
+    ["Mythical Gym"] = {CFrame = CFrame.new(2250.77808, 28.6999931, 1073.22668, 0, 0, -1, 0, 1, 0, 1, 0, 0), Icon = "sparkles"},
+    ["Eternal Gym"] = {CFrame = CFrame.new(-6758.96387, 28.6999969, -1284.9187, 0, 0, 1, 0, 1, 0, -1, 0, 0), Icon = "infinity"},
+    ["Legends Gym"] = {CFrame = CFrame.new(4603.28174, 1009.06122, -3897.86572, -0.173624277, 0, 0.984811902, 0, 1, 0, -0.984811902, 0, -0.173624277), Icon = "trophy"},
+    ["Muscle King Gym"] = {CFrame = CFrame.new(-8625.92969, 115.325806, -5730.47314, 0.765765905, 0.00229619863, 0.643115342, 0.00148510444, 0.999984622, -0.0053387098, -0.643117726, 0.00504329521, 0.765750766), Icon = "crown"},
+    ["Jungle Gym"] = {CFrame = CFrame.new(3500, 150, -10685.62109), Icon = "crown"},
+}
+
+
+-- Universal Teleport Function (Advanced & Error-Handled)
+local function TeleportTo(posName)
+    local player = game:GetService("Players").LocalPlayer
+    if player and player.Character then
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = Teleports[posName].CFrame
+            WindUI:Notify({
+                Title   = "Teleport Success",
+                Content = "Teleported to " .. posName .. "!",
+                Icon    = Teleports[posName].Icon,
+                Duration = 3
+            })
+        else
+            WindUI:Notify({
+                Title   = "Error",
+                Content = "No HumanoidRootPart found. Respawn and try again.",
+                Icon    = "x-circle",
+                Duration = 3
+            })
+        end
+    else
         WindUI:Notify({
-            Title   = "Infinite Jump",
-            Content = state and "Enabled" or "Disabled",
-            Icon    = state and "check" or "x",
-            Duration = 2
+            Title   = "Error",
+            Content = "Character not loaded. Wait and retry.",
+            Icon    = "x-circle",
+            Duration = 3
         })
     end
-})
+end
 
-ScriptSection:Toggle({
-    Title = "Speed Boost",
-    Desc  = "Increases walk speed",
-    Flag  = "SpeedBoost",
-    Value = false,
-    Callback = function(state)
-        local player = game:GetService("Players").LocalPlayer
-        if player and player.Character then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.WalkSpeed = state and 50 or 16
-            end
-        end
-        WindUI:Notify({
-            Title   = "Speed Boost",
-            Content = state and "Speed set to 50" or "Speed reset to 16",
-            Icon    = state and "check" or "x",
-            Duration = 2
-        })
-    end
-})
+-- Dynamic Buttons (Scalable - Add new islands to Teleports table)
+for islandName, data in pairs(Teleports) do
+    TeleportSection:Button({
+        Title    = "TP: " .. islandName,
+        Icon     = data.Icon,
+        Callback = function() TeleportTo(islandName) end
+    })
+end
 
-ScriptSection:Slider({
-    Title = "Walk Speed",
-    Desc  = "Fine-tune your walk speed",
-    Flag  = "WalkSpeed",
-    Value = { Min = 16, Max = 200, Default = 16 },
-    Step  = 1,
-    Callback = function(value)
-        local player = game:GetService("Players").LocalPlayer
-        if player and player.Character then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum.WalkSpeed = value end
-        end
-    end
-})
+TeleportSection:Divider()
 
-ScriptSection:Slider({
-    Title = "Jump Power",
-    Desc  = "Adjust jump height",
-    Flag  = "JumpPower",
-    Value = { Min = 50, Max = 300, Default = 50 },
-    Step  = 5,
-    Callback = function(value)
-        local player = game:GetService("Players").LocalPlayer
-        if player and player.Character then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum.JumpPower = value end
-        end
-    end
-})
-
-ScriptSection:Divider()
-
-ScriptSection:Button({
-    Title    = "Teleport to Spawn",
-    Icon     = "map-pin",
-    Callback = function()
-        local player = game:GetService("Players").LocalPlayer
-        if player and player.Character then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.CFrame = CFrame.new(0, 10, 0) end
-        end
-        WindUI:Notify({
-            Title   = "Teleport",
-            Content = "Teleported to spawn (0, 10, 0)",
-            Icon    = "map-pin",
-            Duration = 2
-        })
-    end
-})
-
-ScriptSection:Button({
+-- Utility Buttons
+TeleportSection:Button({
     Title    = "Rejoin Server",
     Icon     = "refresh-cw",
     Callback = function()
         game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
+    end
+})
+
+TeleportSection:Button({
+    Title    = "Anti-AFK Teleport Loop",
+    Icon     = "zap",
+    Callback = function()
+        -- Simple scalable anti-AFK (toggleable in future)
+        spawn(function()
+            while wait(60) do
+                if game:GetService("Players").LocalPlayer.Character then
+                    game:GetService("Players").LocalPlayer.Character.HumanoidRootPart.CFrame = Teleports.Spawn.CFrame + Vector3.new(math.random(-10,10), 0, math.random(-10,10))
+                end
+            end
+        end)
+        WindUI:Notify({Title = "Anti-AFK", Content = "Enabled subtle teleport loop!", Icon = "zap", Duration = 3})
     end
 })
 
