@@ -1,0 +1,559 @@
+-- Omni Hub | WindUI Script
+-- Version: 1.0.0
+
+local WindUI = loadstring(game:HttpGet(
+    "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
+))()
+-- ============================================================
+--  THEME & GLOBAL SETTINGS
+-- ============================================================
+
+WindUI.TransparencyValue = 0.15
+WindUI:SetTheme("Dark")
+
+-- ============================================================
+--  WINDOW
+-- ============================================================
+
+local Window = WindUI:CreateWindow({
+    Title = "Omni Hub",
+    Icon = "zap",          -- Single icon only (removed duplicate)
+    Author = "Premium Script Hub",
+    Folder = "OmniHub",
+    Size = UDim2.fromOffset(600, 500),
+    Theme = "Dark",
+    HidePanelBackground = false,
+    NewElements = false,
+    Acrylic = false,
+    HideSearchBar = false,
+    SideBarWidth = 195,
+
+    User = {
+        Enabled = true,
+        Anonymous = true,
+        Callback = function()
+            WindUI:Notify({
+                Title = "Omni Hub",
+                Content = "Logged in as: Anonymous",
+                Duration = 3
+            })
+        end
+    },
+
+    -- FIX: Draggable = true makes the open button movable
+    -- FIX: Cohesive purple/indigo gradient (no clashing cyan vs purple)
+    OpenButton = {
+        Title = "",
+        CornerRadius = UDim.new(1, 0),
+        StrokeThickness = 3,
+        Enabled = true,
+        Draggable = true,
+        OnlyMobile = false,
+        Color = ColorSequence.new(
+            Color3.fromHex("#7C3AED"),   -- Deep violet
+            Color3.fromHex("#4F46E5")    -- Indigo — smooth, cohesive pair
+        ),
+    },
+})
+
+-- ============================================================
+--  VERSION TAGS  (matching the new palette)
+-- ============================================================
+
+Window:Tag({
+    Title = "v1.0.0",
+    Color = Color3.fromHex("#818CF8")    -- Soft indigo
+})
+
+Window:Tag({
+    Title = "Beta",
+    Color = Color3.fromHex("#A78BFA")    -- Lilac — harmonious pair
+})
+
+-- ============================================================
+--  TOPBAR THEME TOGGLE
+-- ============================================================
+
+Window:CreateTopbarButton("theme-switcher", "moon", function()
+    WindUI:SetTheme(WindUI:GetCurrentTheme() == "Dark" and "Light" or "Dark")
+    WindUI:Notify({
+        Title = "Theme Switched",
+        Content = "Now using: " .. WindUI:GetCurrentTheme(),
+        Duration = 2
+    })
+end, 990)
+
+-- ============================================================
+--  SECTIONS
+-- ============================================================
+
+local Sections = {
+    Hub     = Window:Section({ Title = "Hub",      Opened = true }),
+    Scripts = Window:Section({ Title = "Scripts",  Opened = true }),
+    Manage  = Window:Section({ Title = "Manage",   Opened = true }),
+}
+
+-- ============================================================
+--  TABS
+-- ============================================================
+
+local Tabs = {
+    Home       = Sections.Hub:Tab({     Title = "Home",       Icon = "house"     }),
+    Scripts    = Sections.Scripts:Tab({ Title = "Scripts",    Icon = "code-2"    }),
+    Appearance = Sections.Manage:Tab({  Title = "Appearance", Icon = "brush"     }),
+    Config     = Sections.Manage:Tab({  Title = "Config",     Icon = "settings"  }),
+}
+
+-- ============================================================
+--  HOME TAB  — Cohesive purple/indigo palette throughout
+-- ============================================================
+
+-- Hero — soft lilac, matches tags
+Tabs.Home:Paragraph({
+    Title = "Welcome to Omni Hub",
+    Desc  = "The most powerful and clean script hub for Roblox.\nFast. Reliable. Always updated.",
+    Image = "zap",
+    ImageSize = 28,
+    Color = Color3.fromHex("#A78BFA"),
+})
+
+Tabs.Home:Divider()
+
+-- Discord button — standard Discord blue (universally recognised)
+Tabs.Home:Button({
+    Title = "Join Our Discord",
+    Icon  = "message-circle",
+    Color = Color3.fromHex("#5865F2"),
+    Callback = function()
+        if setclipboard then
+            setclipboard("https://discord.gg/omnihub")
+        end
+        WindUI:Notify({
+            Title   = "Discord",
+            Content = "Discord invite link copied to clipboard!\ndiscord.gg/omnihub",
+            Icon    = "message-circle",
+            Duration = 4
+        })
+    end
+})
+
+Tabs.Home:Space()
+
+-- Update Log
+Tabs.Home:Section({
+    Title = "Update Log",
+    TextSize = 18,
+    TextXAlignment = "Left",
+})
+
+-- Latest — brightest indigo
+Tabs.Home:Paragraph({
+    Title = "v1.0.0  —  Initial Release",
+    Desc  = "• Omni Hub launched with Alpha access.\n• Key system implemented.\n• Appearance & Config tabs added.\n• Home page with Discord integration.",
+    Image = "git-commit",
+    ImageSize = 16,
+    Color = Color3.fromHex("#818CF8"),
+})
+
+-- Mid — medium lilac
+Tabs.Home:Paragraph({
+    Title = "v0.9.0  —  Beta Testing",
+    Desc  = "• WindUI integration completed.\n• Core script framework built.\n• Internal beta distributed to testers.",
+    Image = "git-commit",
+    ImageSize = 16,
+    Color = Color3.fromHex("#A78BFA"),
+})
+
+-- Oldest — muted slate-purple, visually fades back
+Tabs.Home:Paragraph({
+    Title = "v0.5.0  —  Alpha Foundation",
+    Desc  = "• Project started.\n• UI prototype created.\n• Key system design finalized.",
+    Image = "git-commit",
+    ImageSize = 16,
+    Color = Color3.fromHex("#6D6D9E"),
+})
+
+Tabs.Home:Divider()
+
+Tabs.Home:Paragraph({
+    Title = "Need Help?",
+    Desc  = "Join our Discord for support, key requests, and feature suggestions.",
+    Image = "help-circle",
+    ImageSize = 16,
+    Color = Color3.fromHex("#94A3B8"),   -- Neutral slate, doesn't compete
+    Buttons = {
+        {
+            Title    = "Copy Discord",
+            Icon     = "copy",
+            Variant  = "Tertiary",
+            Callback = function()
+                if setclipboard then
+                    setclipboard("https://discord.gg/omnihub")
+                end
+                WindUI:Notify({
+                    Title   = "Copied",
+                    Content = "Discord link copied!",
+                    Duration = 2
+                })
+            end
+        }
+    }
+})
+
+-- ============================================================
+--  SCRIPTS TAB
+-- ============================================================
+
+Tabs.Scripts:Paragraph({
+    Title = "Script Library",
+    Desc  = "Execute scripts instantly. More scripts added regularly.",
+    Image = "library",
+    ImageSize = 20,
+    Color = Color3.fromHex("#818CF8"),
+})
+
+local ScriptSection = Tabs.Scripts:Section({
+    Title  = "Universal Scripts",
+    Opened = true,
+    Box    = true,
+})
+
+ScriptSection:Toggle({
+    Title = "Infinite Jump",
+    Flag  = "InfiniteJump",
+    Value = false,
+    Callback = function(state)
+        WindUI:Notify({
+            Title   = "Infinite Jump",
+            Content = state and "Enabled" or "Disabled",
+            Icon    = state and "check" or "x",
+            Duration = 2
+        })
+    end
+})
+
+ScriptSection:Toggle({
+    Title = "Speed Boost",
+    Desc  = "Increases walk speed",
+    Flag  = "SpeedBoost",
+    Value = false,
+    Callback = function(state)
+        local player = game:GetService("Players").LocalPlayer
+        if player and player.Character then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = state and 50 or 16
+            end
+        end
+        WindUI:Notify({
+            Title   = "Speed Boost",
+            Content = state and "Speed set to 50" or "Speed reset to 16",
+            Icon    = state and "check" or "x",
+            Duration = 2
+        })
+    end
+})
+
+ScriptSection:Slider({
+    Title = "Walk Speed",
+    Desc  = "Fine-tune your walk speed",
+    Flag  = "WalkSpeed",
+    Value = { Min = 16, Max = 200, Default = 16 },
+    Step  = 1,
+    Callback = function(value)
+        local player = game:GetService("Players").LocalPlayer
+        if player and player.Character then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = value end
+        end
+    end
+})
+
+ScriptSection:Slider({
+    Title = "Jump Power",
+    Desc  = "Adjust jump height",
+    Flag  = "JumpPower",
+    Value = { Min = 50, Max = 300, Default = 50 },
+    Step  = 5,
+    Callback = function(value)
+        local player = game:GetService("Players").LocalPlayer
+        if player and player.Character then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.JumpPower = value end
+        end
+    end
+})
+
+ScriptSection:Divider()
+
+ScriptSection:Button({
+    Title    = "Teleport to Spawn",
+    Icon     = "map-pin",
+    Callback = function()
+        local player = game:GetService("Players").LocalPlayer
+        if player and player.Character then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = CFrame.new(0, 10, 0) end
+        end
+        WindUI:Notify({
+            Title   = "Teleport",
+            Content = "Teleported to spawn (0, 10, 0)",
+            Icon    = "map-pin",
+            Duration = 2
+        })
+    end
+})
+
+ScriptSection:Button({
+    Title    = "Rejoin Server",
+    Icon     = "refresh-cw",
+    Callback = function()
+        game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
+    end
+})
+
+-- ============================================================
+--  APPEARANCE TAB
+-- ============================================================
+
+Tabs.Appearance:Paragraph({
+    Title = "Appearance Settings",
+    Desc  = "Customize the look of Omni Hub.",
+    Image = "palette",
+    ImageSize = 20,
+    Color = Color3.fromHex("#A78BFA"),
+})
+
+local themes = {}
+for themeName, _ in pairs(WindUI:GetThemes()) do
+    table.insert(themes, themeName)
+end
+table.sort(themes)
+
+local canChangeTheme    = true
+local canChangeDropdown = true
+
+local themeDropdown = Tabs.Appearance:Dropdown({
+    Title            = "Select Theme",
+    Values           = themes,
+    Flag             = "themeDropdown",
+    SearchBarEnabled = true,
+    Value            = "Dark",
+    Callback         = function(theme)
+        canChangeDropdown = false
+        WindUI:SetTheme(theme)
+        WindUI:Notify({
+            Title   = "Theme Applied",
+            Content = theme,
+            Icon    = "palette",
+            Duration = 2
+        })
+        canChangeDropdown = true
+    end
+})
+
+local ThemeToggle = Tabs.Appearance:Toggle({
+    Title = "Dark Mode",
+    Desc  = "Switch between Dark and Light theme",
+    Value = true,
+    Callback = function(state)
+        if canChangeTheme then
+            WindUI:SetTheme(state and "Dark" or "Light")
+        end
+        if canChangeDropdown then
+            themeDropdown:Select(state and "Dark" or "Light")
+        end
+    end
+})
+
+WindUI:OnThemeChange(function(theme)
+    canChangeTheme = false
+    ThemeToggle:Set(theme == "Dark")
+    canChangeTheme = true
+end)
+
+Tabs.Appearance:Slider({
+    Title    = "Window Transparency",
+    Value    = { Min = 0, Max = 1, Default = 0 },
+    Flag     = "transparencySlider",
+    Step     = 0.05,
+    Callback = function(value)
+        Window:SetBackgroundTransparency(value)
+        Window:SetBackgroundImageTransparency(value)
+    end
+})
+
+Tabs.Appearance:Colorpicker({
+    Title    = "Accent Color",
+    Default  = Color3.fromHex("#7C3AED"),
+    Callback = function(color)
+        WindUI:Notify({
+            Title   = "Accent Updated",
+            Content = "#" .. color:ToHex():upper(),
+            Duration = 2
+        })
+    end
+})
+
+-- ============================================================
+--  CONFIG TAB
+-- ============================================================
+
+Tabs.Config:Paragraph({
+    Title = "Configuration",
+    Desc  = "Save and load your Omni Hub settings.",
+    Image = "save",
+    ImageSize = 20,
+    Color = Color3.fromHex("#818CF8"),
+})
+
+local configName = "default"
+local configFile = nil
+local ConfigManager = Window.ConfigManager
+
+local configInput = Tabs.Config:Input({
+    Title    = "Config Name",
+    Value    = configName,
+    Callback = function(value)
+        configName = value ~= "" and value or "default"
+    end
+})
+
+if ConfigManager then
+    ConfigManager:Init(Window)
+
+    Tabs.Config:Dropdown({
+        Title        = "Saved Configs",
+        Values       = ConfigManager:AllConfigs(),
+        Value        = configName,
+        AllowNone    = false,
+        Callback     = function(value)
+            configName = value or "default"
+            configInput:Set(configName)
+        end
+    })
+
+    Tabs.Config:Space({ Columns = 0 })
+
+    Tabs.Config:Button({
+        Title    = "Save Config",
+        Icon     = "save",
+        IconAlign = "Left",
+        Justify  = "Center",
+        Color    = Color3.fromHex("#818CF8"),
+        Callback = function()
+            configFile = ConfigManager:CreateConfig(configName)
+            configFile:Set("lastSave", os.date("%Y-%m-%d %H:%M:%S"))
+            if configFile:Save() then
+                WindUI:Notify({
+                    Title   = "Saved",
+                    Content = "Config saved as: " .. configName,
+                    Icon    = "check",
+                    Duration = 3
+                })
+            else
+                WindUI:Notify({
+                    Title   = "Error",
+                    Content = "Failed to save config.",
+                    Icon    = "x",
+                    Duration = 3
+                })
+            end
+        end
+    })
+
+    Tabs.Config:Space({ Columns = -1 })
+
+    Tabs.Config:Button({
+        Title    = "Load Config",
+        Icon     = "folder",
+        IconAlign = "Left",
+        Justify  = "Center",
+        Color    = Color3.fromHex("#A78BFA"),
+        Callback = function()
+            configFile = ConfigManager:CreateConfig(configName)
+            local loadedData = configFile:Load()
+            if loadedData then
+                WindUI:Notify({
+                    Title   = "Loaded",
+                    Content = "Config: " .. configName .. "\nSaved: " .. (loadedData.lastSave or "Unknown"),
+                    Icon    = "refresh-cw",
+                    Duration = 4
+                })
+            else
+                WindUI:Notify({
+                    Title   = "Error",
+                    Content = "Failed to load config.",
+                    Icon    = "x",
+                    Duration = 3
+                })
+            end
+        end
+    })
+
+    Tabs.Config:Space({ Columns = 0 })
+    Tabs.Config:Divider()
+
+    Tabs.Config:Button({
+        Title    = "Delete Config",
+        Icon     = "trash-2",
+        Justify  = "Center",
+        Callback = function()
+            Window:Dialog({
+                Title   = "Delete Config",
+                Content = "Are you sure you want to delete \"" .. configName .. "\"? This cannot be undone.",
+                Buttons = {
+                    {
+                        Title    = "Delete",
+                        Variant  = "Primary",
+                        Callback = function()
+                            if ConfigManager.DeleteConfig then
+                                ConfigManager:DeleteConfig(configName)
+                            end
+                            WindUI:Notify({
+                                Title   = "Deleted",
+                                Content = "Config \"" .. configName .. "\" deleted.",
+                                Icon    = "trash-2",
+                                Duration = 3
+                            })
+                        end
+                    },
+                    {
+                        Title   = "Cancel",
+                        Variant = "Secondary",
+                    }
+                }
+            })
+        end
+    })
+else
+    Tabs.Config:Paragraph({
+        Title = "Config Manager Unavailable",
+        Desc  = "ConfigManager is not supported in this environment.",
+        Image = "alert-triangle",
+        ImageSize = 18,
+        Color = Color3.fromHex("#94A3B8"),
+    })
+end
+
+-- ============================================================
+--  FOOTER
+-- ============================================================
+
+local _ = Window:Section({ Title = "Omni Hub  •  v1.0.0" })
+
+-- ============================================================
+--  WINDOW EVENTS
+-- ============================================================
+
+Window:OnClose(function()
+    if ConfigManager and configFile then
+        configFile:Set("lastSave", os.date("%Y-%m-%d %H:%M:%S"))
+        configFile:Save()
+    end
+end)
+
+Window:OnOpen(function() end)
+Window:OnDestroy(function() end)
+
+Window:UnlockAll()
