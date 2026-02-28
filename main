@@ -89,7 +89,7 @@ end, 990)
 
 local Sections = {
     Hub     = Window:Section({ Title = "Hub",      Opened = true }),
-    Scripts = Window:Section({ Title = "Scripts",  Opened = true }),
+    Scripts = Window:Section({ Title = "Main",  Opened = true }),
     Manage  = Window:Section({ Title = "Manage",   Opened = true }),
 }
 
@@ -98,10 +98,12 @@ local Sections = {
 -- ============================================================
 
 local Tabs = {
-    Home       = Sections.Hub:Tab({     Title = "Home",       Icon = "house"     }),
-    Scripts    = Sections.Scripts:Tab({ Title = "Teleport",    Icon = "navigation"    }),
-    Appearance = Sections.Manage:Tab({  Title = "Appearance", Icon = "brush"     }),
-    Config     = Sections.Manage:Tab({  Title = "Config",     Icon = "settings"  }),
+    Home       = Sections.Hub:Tab({     Title = "Home",       Icon = "home"     }),
+    Scripts    = Sections.Scripts:Tab({ Title = "Teleport",    Icon = "navigation" }),
+    Farm       = Sections.Scripts:Tab({ Title = "Farm",        Icon = "zap"       }),
+	Misc      = Sections.Scripts:Tab({ Title = "Misc",        Icon = "zap"       }),  -- New tab!
+    Appearance = Sections.Manage:Tab({  Title = "Appearance",  Icon = "brush"     }),
+    Config     = Sections.Manage:Tab({  Title = "Config",      Icon = "settings"  }),
 }
 
 -- ============================================================
@@ -149,7 +151,7 @@ Tabs.Home:Section({
 -- Latest — brightest indigo
 Tabs.Home:Paragraph({
     Title = "v1.0.0  —  Initial Release",
-    Desc  = "• Omni Hub launched with Alpha access.\n• Key system implemented.\n• Appearance & Config tabs added.\n• Home page with Discord integration.",
+    Desc  = "• Omni Hub launched with Beta access.\n• Key system implemented.\n• Appearance & Config tabs added.\n• Home page with Discord integration.",
     Image = "git-commit",
     ImageSize = 16,
     Color = Color3.fromHex("#818CF8"),
@@ -284,22 +286,475 @@ TeleportSection:Button({
         game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
     end
 })
+-- ============================================================
+--  FARM TAB
+-- ============================================================
 
-TeleportSection:Button({
-    Title    = "Anti-AFK Teleport Loop",
-    Icon     = "zap",
-    Callback = function()
-        -- Simple scalable anti-AFK (toggleable in future)
-        spawn(function()
-            while wait(60) do
-                if game:GetService("Players").LocalPlayer.Character then
-                    game:GetService("Players").LocalPlayer.Character.HumanoidRootPart.CFrame = Teleports.Spawn.CFrame + Vector3.new(math.random(-10,10), 0, math.random(-10,10))
-                end
-            end
-        end)
-        WindUI:Notify({Title = "Anti-AFK", Content = "Enabled subtle teleport loop!", Icon = "zap", Duration = 3})
+Tabs.Farm:Paragraph({
+    Title = "Auto Grind",
+    Desc = "Auto-trains strength, agility & durability. Farm coins, rebirths, and dominate arenas effortlessly.",
+    Image = "zap",  -- Dumbbell/strength icon (fits gym theme perfectly)
+    ImageSize = 24,
+    Color = Color3.fromHex("#F59E0B"),  -- Bold amber-orange for power & energy
+})
+-- ============================================================
+--  FARM TAB — Auto Strength | Production Ready | v2.0
+-- ============================================================
+
+getgenv().AutoGrind = false
+
+-- ============================================================
+--  CONFIGURATION (tweak here, no need to touch logic below)
+-- ============================================================
+local CONFIG = {
+    -- Tool detection: matches if tool name contains ANY of these (case-insensitive)
+    WeightNamePatterns  = { "weight" },
+    -- Also match numbered tools: "Weight 2", "Weight 3", etc.
+    WeightNumberedMatch = true,
+    -- Minimum number suffix to count as a weight (1 = Weight 1, 2 = Weight 2, etc.)
+    MinWeightNumber     = 1,
+    -- Rep fire method: "event" = FireServer("rep"), "invoke" = InvokeServer("rep")
+    RepMethod           = "event",
+    -- How many times to fire per Heartbeat tick (1 = fastest safe, 2+ = aggressive)
+    RepsPerTick         = 1,
+    -- Delay between equip attempts when no weight found (seconds)
+    EquipRetryDelay     = 0.5,
+    -- How long to wait after respawn before re-equipping
+    RespawnSettleDelay  = 2.0,
+    -- Max time to wait for muscleEvent remote before aborting
+    RemoteWaitTimeout   = 15,
+}
+
+-- ============================================================
+--  UI
+-- ============================================================
+
+Tabs.Farm:Toggle({
+    Title    = "Auto Strength",
+    Desc     = "Fastest bypass — Heartbeat-driven rep spam with auto equip",
+    Value    = false,
+    Callback = function(v)
+        getgenv().AutoGrind = v
     end
 })
+
+-- ============================================================
+--  SERVICES & PLAYER
+-- ============================================================
+
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local LocalPlayer    = Players.LocalPlayer
+
+-- ============================================================
+--  REMOTE ACQUISITION
+-- ============================================================
+
+local muscleEvent = LocalPlayer:WaitForChild("muscleEvent", CONFIG.RemoteWaitTimeout)
+if not muscleEvent then
+    warn("[AutoStrength] FATAL: muscleEvent remote not found after " .. CONFIG.RemoteWaitTimeout .. "s. Auto Strength will not work.")
+    return
+end
+
+-- ============================================================
+--  STATE
+-- ============================================================
+
+local State = {
+    character    = nil,  -- current Character model
+    humanoid     = nil,  -- current Humanoid
+    equipped     = nil,  -- currently tracked Weight tool
+    alive        = false,
+    initialized  = false,
+}
+
+-- ============================================================
+--  TOOL DETECTION
+-- ============================================================
+
+-- Returns true if a Tool qualifies as a "Weight" based on CONFIG rules
+local function isWeightTool(tool)
+    if not tool or not tool:IsA("Tool") then return false end
+
+    local nameLower = tool.Name:lower()
+
+    -- 1. Direct name pattern match (e.g. "weight", "Weight", "WEIGHT")
+    for _, pattern in ipairs(CONFIG.WeightNamePatterns) do
+        if string.find(nameLower, pattern:lower(), 1, true) then
+            return true
+        end
+    end
+
+    -- 2. Numbered tool match: "Weight 1", "Weight 2", etc. (covers "Weight 10", "Weight 2", etc.)
+    if CONFIG.WeightNumberedMatch then
+        local numStr = string.match(nameLower, "weight%s*(%d+)")
+        if numStr then
+            local num = tonumber(numStr)
+            if num and num >= CONFIG.MinWeightNumber then
+                return true
+            end
+        end
+    end
+
+    -- 3. Has a repTime child (game-native signal that it's a grindable tool)
+    if tool:FindFirstChild("repTime") then
+        return true
+    end
+
+    return false
+end
+
+-- ============================================================
+--  WEIGHT FINDER
+-- ============================================================
+
+-- Returns the best Weight tool from the backpack, or nil
+-- "Best" = highest number suffix (Weight 10 > Weight 2 > Weight, gives strongest tool)
+local function getBestWeightFromBackpack()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if not backpack then return nil end
+
+    local best      = nil
+    local bestScore = -1
+
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if isWeightTool(tool) then
+            -- Score by number suffix (no number = 0)
+            local numStr = string.match(tool.Name:lower(), "weight%s*(%d+)")
+            local score  = numStr and (tonumber(numStr) or 0) or 0
+            if score > bestScore then
+                bestScore = score
+                best      = tool
+            end
+        end
+    end
+
+    return best
+end
+
+-- Returns the Weight tool currently equipped in the character, or nil
+local function getEquippedWeight()
+    if not State.character then return nil end
+    for _, obj in ipairs(State.character:GetChildren()) do
+        if isWeightTool(obj) then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- ============================================================
+--  EQUIP LOGIC
+-- ============================================================
+
+local function tryEquipWeight()
+    if not State.humanoid or State.humanoid.Health <= 0 then return false end
+    local w = getBestWeightFromBackpack()
+    if not w then return false end
+    local ok, err = pcall(function()
+        State.humanoid:EquipTool(w)
+    end)
+    if not ok then
+        warn("[AutoStrength] EquipTool failed:", err)
+    end
+    return ok
+end
+
+-- ============================================================
+--  CHARACTER INIT / RESPAWN HANDLER
+-- ============================================================
+
+local function initCharacter(char)
+    State.character   = char
+    State.humanoid    = char:WaitForChild("Humanoid", 5)
+    State.equipped    = nil
+    State.alive       = (State.humanoid ~= nil)
+    State.initialized = true
+
+    -- Track death
+    if State.humanoid then
+        State.humanoid.Died:Connect(function()
+            State.alive   = false
+            State.equipped = nil
+        end)
+    end
+end
+
+-- Hook respawn for the lifetime of this script
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    initCharacter(newChar)
+    task.wait(CONFIG.RespawnSettleDelay)
+    if getgenv().AutoGrind then
+        tryEquipWeight()
+    end
+end)
+
+-- Initialize with the current character (already loaded)
+if LocalPlayer.Character then
+    initCharacter(LocalPlayer.Character)
+end
+
+-- ============================================================
+--  REP FIRE
+-- ============================================================
+
+local function fireRep()
+    if CONFIG.RepMethod == "invoke" then
+        pcall(function() muscleEvent:InvokeServer("rep") end)
+    else
+        pcall(function() muscleEvent:FireServer("rep") end)
+    end
+end
+
+-- ============================================================
+--  HEARTBEAT LOOP — Fastest possible, one connection, no task.wait
+-- ============================================================
+--  RunService.Heartbeat fires every frame (~60/s, no artificial delay).
+--  This is the fastest bypass method without Stepped/BindToRenderStep tricks.
+-- ============================================================
+
+local equipCooldown   = 0
+local EQUIP_INTERVAL  = CONFIG.EquipRetryDelay
+
+RunService.Heartbeat:Connect(function(dt)
+    if not getgenv().AutoGrind then return end
+    if not State.initialized then return end
+
+    -- Guard: character changed mid-session
+    if LocalPlayer.Character ~= State.character then
+        initCharacter(LocalPlayer.Character)
+        return
+    end
+
+    -- Guard: not alive
+    if not State.alive then return end
+    if not State.humanoid or State.humanoid.Health <= 0 then
+        State.alive = false
+        return
+    end
+
+    -- Check if a weight is equipped right now
+    local currentWeight = getEquippedWeight()
+
+    if not currentWeight then
+        -- Throttle equip retries so we don't spam EquipTool every frame
+        equipCooldown = equipCooldown + dt
+        if equipCooldown >= EQUIP_INTERVAL then
+            equipCooldown = 0
+            tryEquipWeight()
+        end
+        return  -- Don't fire reps until weight is equipped
+    end
+
+    -- Weight is equipped — track it and fire reps
+    State.equipped = currentWeight
+
+    for _ = 1, CONFIG.RepsPerTick do
+        fireRep()
+    end
+end)
+
+--// SETTINGS
+getgenv().AutoRebirth      = false
+getgenv().AutoRebirthDelay = 1 -- seconds between rebirths
+
+--// SERVICES & REMOTE
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local rEvents = ReplicatedStorage:WaitForChild("rEvents")
+local rebirthRemote = rEvents:WaitForChild("rebirthRemote")
+
+-- one-shot test (optional, can delete after confirming it rebirths you once)
+task.spawn(function()
+    task.wait(2)
+    print("[AutoRebirth] Testing single rebirth call")
+    local ok, err = pcall(function()
+        rebirthRemote:InvokeServer("rebirthRequest")
+    end)
+    print("[AutoRebirth] Test result:", ok, err)
+end)
+
+--// WINDUI TOGGLE (put on whatever tab you want, here I use Tabs.Farm)
+Tabs.Farm:Toggle({
+    Title = "Auto Rebirth",
+    Desc  = "Automatically invoke rebirthRemote",
+    Value = false,
+    Callback = function(state)
+        getgenv().AutoRebirth = state
+        print("[AutoRebirth] Toggled:", state)
+    end
+})
+
+--// MAIN LOOP
+task.spawn(function()
+    while true do
+        task.wait(getgenv().AutoRebirthDelay)
+
+        if not getgenv().AutoRebirth then
+            continue
+        end
+
+        local ok, err = pcall(function()
+            rebirthRemote:InvokeServer("rebirthRequest")
+        end)
+
+        if not ok then
+            warn("[AutoRebirth] Invoke failed:", err)
+        end
+    end
+end)
+
+
+-- ============================================================
+--  MISC TAB
+-- ============================================================
+
+--// CONFIG
+getgenv().AutoTPToGym = false
+getgenv().TPDelay     = 1 -- default seconds between teleports
+
+local Players     = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Muscle King Gym CFrame
+local kingGymCF = CFrame.new(
+    -8625.92969, 115.325806, -5730.47314,
+    0.765765905, 0.00229619863, 0.643115342,
+    0.00148510444, 0.999984622, -0.0053387098,
+    -0.643117726, 0.00504329521, 0.765750766
+)
+
+--// MISC TAB INPUT FOR DELAY (seconds)
+Tabs.Misc:Input({
+    Title       = "TP Delay (seconds)",
+    Desc        = "Time between teleports (e.g. 0.5, 1, 2)",
+    Placeholder = "1",
+    Callback    = function(text)
+        local n = tonumber(text)
+        if n and n > 0 then
+            getgenv().TPDelay = n
+            print("[TP] Delay set to:", n)
+        else
+            print("[TP] Invalid delay input:", text)
+        end
+    end
+})
+
+-- Auto TP toggle
+Tabs.Misc:Toggle({
+    Title   = "Auto TP Muscle King Gym",
+    Desc    = "Teleport to gym every TP Delay seconds",
+    Value   = false,
+    Callback = function(state)
+        getgenv().AutoTPToGym = state
+        print("[TP] AutoTP:", state)
+    end
+})
+
+--// LOOP
+task.spawn(function()
+    while true do
+        task.wait(getgenv().TPDelay)
+        if not getgenv().AutoTPToGym then
+            continue
+        end
+
+        local char = LocalPlayer.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = kingGymCF
+        end
+    end
+end)
+
+--// CONFIG
+getgenv().AutoSize   = false
+getgenv().AutoSpeed  = false
+getgenv().SizeValue  = 10
+getgenv().SpeedValue = 50
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local rEvents      = ReplicatedStorage:WaitForChild("rEvents")
+local changeRemote = rEvents:WaitForChild("changeSpeedSizeRemote")
+
+--// WINDUI (MISC TAB)
+
+-- Size input
+Tabs.Misc:Input({
+    Title = "Set Size",
+    Desc  = "Enter size value (number)",
+    Placeholder = "10",
+    Callback = function(text)
+        local n = tonumber(text)
+        if n then
+            getgenv().SizeValue = n
+            print("SizeValue set to", n)
+        else
+            print("Invalid size input:", text)
+        end
+    end
+})
+
+-- Auto Size toggle
+Tabs.Misc:Toggle({
+    Title = "Auto Size",
+    Desc  = "Loop changeSize using SizeValue",
+    Value = false,
+    Callback = function(state)
+        getgenv().AutoSize = state
+        print("AutoSize:", state)
+    end
+})
+
+-- Speed input
+Tabs.Misc:Input({
+    Title = "Set Speed",
+    Desc  = "Enter speed value (number)",
+    Placeholder = "50",
+    Callback = function(text)
+        local n = tonumber(text)
+        if n then
+            getgenv().SpeedValue = n
+            print("SpeedValue set to", n)
+        else
+            print("Invalid speed input:", text)
+        end
+    end
+})
+
+-- Auto Speed toggle
+Tabs.Misc:Toggle({
+    Title = "Auto Speed",
+    Desc  = "Loop changeSpeed using SpeedValue",
+    Value = false,
+    Callback = function(state)
+        getgenv().AutoSpeed = state
+        print("AutoSpeed:", state)
+    end
+})
+
+--// LOOPS
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if getgenv().AutoSize then
+            pcall(function()
+                changeRemote:InvokeServer("changeSize", getgenv().SizeValue)
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if getgenv().AutoSpeed then
+            pcall(function()
+                changeRemote:InvokeServer("changeSpeed", getgenv().SpeedValue)
+            end)
+        end
+    end
+end)
 
 -- ============================================================
 --  APPEARANCE TAB
